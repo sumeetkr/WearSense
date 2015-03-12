@@ -1,22 +1,22 @@
 package sumeetkumar.in.wearsense;
 
-import java.util.Locale;
-
-import android.support.v7.app.ActionBarActivity;
-import android.support.v7.app.ActionBar;
+import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentTransaction;
 import android.support.v4.app.FragmentPagerAdapter;
-import android.os.Bundle;
 import android.support.v4.view.ViewPager;
-import android.view.Gravity;
+import android.support.v7.app.ActionBarActivity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
+
+import java.util.Locale;
+
+import sumeetkumar.in.wearsense.services.AlarmManager;
+import sumeetkumar.in.wearsense.utils.Constants;
+import sumeetkumar.in.wearsense.utils.Logger;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -50,6 +50,10 @@ public class MainActivity extends ActionBarActivity {
         mViewPager = (ViewPager) findViewById(R.id.pager);
         mViewPager.setAdapter(mSectionsPagerAdapter);
 
+        Logger.log("scheduling alarm");
+        AlarmManager.setupRepeatingAlarmToWakeUpApplication(
+                this.getApplicationContext(),
+                Constants.TIME_RANGE_TO_SHOW_ALERT_IN_MINUTES * 60 * 1000);
     }
 
 
