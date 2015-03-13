@@ -33,6 +33,9 @@ public class BackgroundService extends Service {
             //do something
         }
 
+        Intent startSensingIntent = new Intent(this, StartSensingBroadcastReceiver.class);
+        sendBroadcast(startSensingIntent);
+
         return Service.START_NOT_STICKY;
     }
 }

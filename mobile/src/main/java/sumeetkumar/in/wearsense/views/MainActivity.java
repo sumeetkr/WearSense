@@ -1,20 +1,30 @@
-package sumeetkumar.in.wearsense;
+package sumeetkumar.in.wearsense.views;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.ActionBarActivity;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.TextView;
 
 import java.util.Locale;
 
+import sumeetkumar.in.wearsense.R;
 import sumeetkumar.in.wearsense.services.AlarmManager;
+import sumeetkumar.in.wearsense.services.StartSensingBroadcastReceiver;
 import sumeetkumar.in.wearsense.utils.Constants;
 import sumeetkumar.in.wearsense.utils.Logger;
 
@@ -36,6 +46,8 @@ public class MainActivity extends ActionBarActivity {
      */
     ViewPager mViewPager;
 
+    private NewDataReceivedBroadcastReceiver dataReceiver;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -54,8 +66,30 @@ public class MainActivity extends ActionBarActivity {
         AlarmManager.setupRepeatingAlarmToWakeUpApplication(
                 this.getApplicationContext(),
                 Constants.TIME_RANGE_TO_SHOW_ALERT_IN_MINUTES * 60 * 1000);
+
+        if(dataReceiver ==null) {
+            dataReceiver = new NewDataReceivedBroadcastReceiver(new Handler());
+
+            Log.d("WEA", "New configuration receiver created in main activity");
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(Constants.NEW_DATA_INTENT_FILTER);
+            filter.addCategory(Intent.CATEGORY_DEFAULT);
+            getApplicationContext().registerReceiver(dataReceiver, filter);
+        }
+
+
     }
 
+    @Override
+    protected void onDestroy(){
+
+        if(dataReceiver!= null){
+            getApplication().unregisterReceiver(dataReceiver);
+            dataReceiver = null;
+        }
+
+        super.onDestroy();
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -79,6 +113,11 @@ public class MainActivity extends ActionBarActivity {
         return super.onOptionsItemSelected(item);
     }
 
+
+    public void readSensors() {
+        Intent intent = new Intent(this, StartSensingBroadcastReceiver.class);
+        sendBroadcast(intent);
+    }
 
     /**
      * A {@link FragmentPagerAdapter} that returns a fragment corresponding to
@@ -147,8 +186,50 @@ public class MainActivity extends ActionBarActivity {
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
             View rootView = inflater.inflate(R.layout.fragment_main, container, false);
+
             return rootView;
+        }
+
+        @Override
+        public void onViewCreated(View view,
+                                  Bundle savedInstanceState){
+            final TextView txtStatus = (TextView) getActivity().findViewById(R.id.txtFragment);
+
+            Button btnGetData = (Button) getActivity().findViewById(R.id.btnGetData);
+            btnGetData.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    ((MainActivity) getActivity()).readSensors();
+                    txtStatus.setText("Asking wear for new data");
+                }
+            });
         }
     }
 
+    public class NewDataReceivedBroadcastReceiver extends BroadcastReceiver {
+        private final Handler handler;
+
+        public NewDataReceivedBroadcastReceiver(Handler handler) {
+            this.handler = handler;
+        }
+
+        @Override
+        public void onReceive(final Context context, final Intent intent) {
+            try{
+                final String message = intent.getStringExtra(Constants.NEW_DATA);
+
+                // Post the UI updating code to our Handler
+                if(handler!= null){
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+//                            displayText.setText(message);
+                        }
+                    });
+                }
+            }catch(Exception ex){
+                Logger.log(ex.getMessage());
+            }
+        }
+    }
 }

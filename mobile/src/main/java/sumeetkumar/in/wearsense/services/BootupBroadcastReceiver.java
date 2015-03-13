@@ -7,7 +7,7 @@ import android.content.Intent;
 import sumeetkumar.in.wearsense.utils.Constants;
 import sumeetkumar.in.wearsense.utils.Logger;
 
-public class BootupBroadcastReceiver extends BroadcastReceiver {
+public class BootUpBroadcastReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         Logger.log("boot up intent received");

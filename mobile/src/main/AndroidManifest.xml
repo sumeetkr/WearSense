@@ -2,13 +2,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="sumeetkumar.in.wearsense" >
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
         <activity
-            android:name=".MainActivity"
+            android:name=".views.MainActivity"
             android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,14 +34,41 @@
         </service>
 
         <receiver
-            android:name=".services.BootupBroadcastReceiver"
+            android:name=".services.BootUpBroadcastReceiver"
             android:enabled="true"
             android:exported="true"
-            android:label="BootupBroadcastReceiver" >
+            android:label="BootUpBroadcastReceiver" >
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".services.StartSensingBroadcastReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:label="StartSensingBroadcastReceiver" >
+        </receiver>
+
+        <service
+            android:name=".services.WearMessageService"
+            android:enabled="true"
+            android:exported="true" >
+        </service>
+        <service
+            android:name=".services.DataSyncListenerService"
+            android:enabled="true"
+            android:exported="true" >
+        </service>
+
+        <activity
+            android:name=".views.GooglePlayServicesActivity"
+            android:label="@string/title_activity_google_play_services" >
+        </activity>
+
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
     </application>
 
 </manifest>
