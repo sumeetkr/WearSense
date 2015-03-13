@@ -11,6 +11,7 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.ActionBarActivity;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -20,6 +21,8 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Locale;
 
 import sumeetkumar.in.wearsense.R;
@@ -76,7 +79,6 @@ public class MainActivity extends ActionBarActivity {
             filter.addCategory(Intent.CATEGORY_DEFAULT);
             getApplicationContext().registerReceiver(dataReceiver, filter);
         }
-
 
     }
 
@@ -203,6 +205,10 @@ public class MainActivity extends ActionBarActivity {
                     txtStatus.setText("Asking wear for new data");
                 }
             });
+
+            TextView txtData = (TextView) getActivity().findViewById(R.id.txtWearData);
+            txtData.setMovementMethod(new ScrollingMovementMethod());
+
         }
     }
 
@@ -217,13 +223,19 @@ public class MainActivity extends ActionBarActivity {
         public void onReceive(final Context context, final Intent intent) {
             try{
                 final String message = intent.getStringExtra(Constants.NEW_DATA);
+                final TextView txtData = (TextView) findViewById(R.id.txtWearData);
+                final TextView txtStatus = (TextView) findViewById(R.id.txtFragment);
 
                 // Post the UI updating code to our Handler
                 if(handler!= null){
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
-//                            displayText.setText(message);
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss");
+                            String currentDateandTime = sdf.format(new Date());
+
+                            txtStatus.setText("Updated at: " + currentDateandTime);
+                            txtData.setText(message);
                         }
                     });
                 }
