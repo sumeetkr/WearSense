@@ -26,8 +26,10 @@ public class WearMessageService extends IntentService {
     }
 
     public WearMessageService() {
+
         super("WearMessageService");
     }
+
     @Override
     protected void onHandleIntent(Intent intent) {
         for (String node : getNodes()) {
