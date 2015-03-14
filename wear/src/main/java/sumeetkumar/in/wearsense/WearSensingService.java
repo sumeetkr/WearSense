@@ -3,18 +3,21 @@ package sumeetkumar.in.wearsense;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.PowerManager;
+import android.util.Base64;
 import android.util.Log;
 
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.Result;
 import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.common.api.Status;
+import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
@@ -23,8 +26,8 @@ import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 import com.google.android.gms.wearable.WearableListenerService;
-import com.google.android.gms.wearable.WearableStatusCodes;
 
+import java.io.ByteArrayOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -33,7 +36,7 @@ import java.util.List;
 import sumeetkumar.in.wearsense.utils.Constants;
 import sumeetkumar.in.wearsense.utils.Logger;
 
-public class ListenerService extends WearableListenerService implements SensorEventListener {
+public class WearSensingService extends WearableListenerService implements SensorEventListener {
     private static final String TAG = "ListenerService";
 
     private GoogleApiClient mGoogleApiClient;
@@ -52,12 +55,12 @@ public class ListenerService extends WearableListenerService implements SensorEv
         mGoogleApiClient.connect();
         sensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
 
-//        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-
         powerManager = (PowerManager) getSystemService(POWER_SERVICE);
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
                 TAG);
 
+        if(audioCollector == null) audioCollector = new SoundDataCollector();
+        audioCollector.collectData(getApplicationContext(),false);
     }
 
     @Override
@@ -112,9 +115,6 @@ public class ListenerService extends WearableListenerService implements SensorEv
     private void startSensorListeners() {
         Logger.log("startSensorListeners");
 
-        if(audioCollector == null) audioCollector = new SoundDataCollector();
-        audioCollector.collectData(getApplicationContext(),false);
-
         List<Sensor> sensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
         sensorData = PutDataMapRequest.create(Constants.SENSOR_DATA_PATH);
         sensorData.getDataMap().putLong("Timestamp", System.currentTimeMillis());
@@ -129,15 +129,18 @@ public class ListenerService extends WearableListenerService implements SensorEv
 
     private void stopSensorListeners() {
         Logger.log("stopSensorListeners");
-        sensorManager.unregisterListener(ListenerService.this);
+        sensorManager.unregisterListener(WearSensingService.this);
         audioCollector.notifyForDataCollectionFinished();
     }
 
     private void sendSensorData() {
         try{
-            Logger.log("sendSensorData");
+            Logger.log("trying to send SensorData");
+
+            addAudioDataToSensorDataCollection();
+
             final PutDataRequest request = sensorData.asPutDataRequest();
-            final ListenerService srv = this;
+            final WearSensingService srv = this;
 
             PendingResult result = Wearable.DataApi.putDataItem(mGoogleApiClient, request);
             result.setResultCallback(new ResultCallback() {
@@ -150,20 +153,46 @@ public class ListenerService extends WearableListenerService implements SensorEv
                     Notification.Builder notificationBuilder =
                             new Notification.Builder(srv)
                                     .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                                    .setContentTitle("Wear Sense")
+                                    .setContentTitle("Sensing!!")
                                     .setContentText(currentDateandTime)
                                     .setVibrate(new long[]{1000, 1000, 1000, 1000, 1000})
-                                    .setOngoing(true);
+                                    .setOngoing(false);
 
                     // Build the notification and show it
                     NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                     notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build());
                 }
             });
-            fireMessage();
+
+//            fireMessage();
         }catch(Exception ex){
-            Logger.log("exception at sendSensorData");
+            Logger.log("exception n sending SensorData");
         }
+    }
+
+    private void addAudioDataToSensorDataCollection() {
+        try{
+            sensorData.getDataMap().putAsset(
+                    "audioAsset",
+                    Asset.createFromBytes(audioCollector.getCollectedAudio().getBytes()));
+
+            audioCollector.notifyForDataCollectionFinished();
+            audioCollector = null;
+        }catch (Exception ex){
+            Logger.log(ex.getMessage());
+        }
+    }
+
+    private static Asset createAssetFromBitmap(Bitmap bitmap) {
+        final ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteStream);
+        return Asset.createFromBytes(byteStream.toByteArray());
+    }
+
+    private static Bitmap getBitmapFromString(String string){
+        byte[] imageAsBytes = Base64.decode(string.getBytes(),Base64.DEFAULT);
+        Bitmap bp = BitmapFactory.decodeByteArray(imageAsBytes, 0, imageAsBytes.length);
+        return  bp;
     }
 
     private void sendMessage( String node, final String message) {
@@ -204,18 +233,18 @@ public class ListenerService extends WearableListenerService implements SensorEv
                         }
                     });
 
-                    PendingResult<MessageApi.SendMessageResult> messageResult = Wearable.MessageApi.sendMessage(mGoogleApiClient, node.getId(),
-                            Constants.SENSOR_DATA_PATH, null);
-                    messageResult.setResultCallback(new ResultCallback<MessageApi.SendMessageResult>() {
-                        @Override
-                        public void onResult(MessageApi.SendMessageResult sendMessageResult) {
-                            Status status = sendMessageResult.getStatus();
-                            Logger.log("Status: " + status.toString());
-                            if (status.getStatusCode() != WearableStatusCodes.SUCCESS) {
-                                Log.d(TAG, status.getStatusMessage());
-                            }
-                        }
-                    });
+//                    PendingResult<MessageApi.SendMessageResult> messageResult = Wearable.MessageApi.sendMessage(mGoogleApiClient, "New data available",
+//                            Constants.SENSOR_DATA_PATH, null);
+//                    messageResult.setResultCallback(new ResultCallback<MessageApi.SendMessageResult>() {
+//                        @Override
+//                        public void onResult(MessageApi.SendMessageResult sendMessageResult) {
+//                            Status status = sendMessageResult.getStatus();
+//                            Logger.log("Status: " + status.toString());
+//                            if (status.getStatusCode() != WearableStatusCodes.SUCCESS) {
+//                                Log.d(TAG, status.getStatusMessage());
+//                            }
+//                        }
+//                    });
                 }
             }
         });

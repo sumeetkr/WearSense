@@ -21,7 +21,8 @@ public class SoundDataCollector  implements ExtAudioRecorder.AudioDataArrivedEve
 
     private ExtAudioRecorder dataRecorder;
     private List<ExtAudioRecorder.AudioReadResult> dataList;
-    private int noOfPointsToCollect = 10000;
+    private List<String> dataPointsAsString = new ArrayList<String>();
+    private int noOfPointsToCollect = 4;
 
     public SoundDataCollector() {
 
@@ -46,21 +47,58 @@ public class SoundDataCollector  implements ExtAudioRecorder.AudioDataArrivedEve
     public void onNewDataArrived(ExtAudioRecorder.AudioReadResult data) {
         dataList.add(data);
 
-        Logger.debug("Sound data collection" + Arrays.toString(data.buffer));
+        Logger.debug("New sound data collection");
+        dataPointsAsString.add(Arrays.toString(data.buffer));
 
         if(dataList.size() > noOfPointsToCollect){
             notifyForDataCollectionFinished();
         }
     }
 
+    public String getCollectedAudio(){
+         String audioData = "";
+        try{
+            if(dataPointsAsString.size()>0){
+//                List<Short> shorts = new ArrayList<Short>();
+//
+//                for(ExtAudioRecorder.AudioReadResult result: dataList){
+//                    for(short dataPoint : result.buffer){
+//                        shorts.add(dataPoint);
+//                    }
+//                }
+//                audioData = shorts.toString();
+                StringBuilder builder = new StringBuilder();
+                for(String snippet: dataPointsAsString){
+                    builder.append(snippet);
+                }
+
+                audioData  = builder.toString();
+            }
+
+        }catch (Exception ex){
+            Logger.log( ex.getMessage());
+        }
+        return  audioData;
+    }
+
+    public String [] getAudioStringArray(){
+        String [] audioDataArray = new String [dataPointsAsString.size()];
+        for (int i=0;i<dataPointsAsString.size();i++){
+            audioDataArray[i] = dataPointsAsString.get(i);
+        }
+        return audioDataArray;
+    }
+
     public  void notifyForDataCollectionFinished(){
-        dataRecorder.stop();
-        dataRecorder.release();
-
-
-//        if(dataRecorder != null){
-//            dataRecorder = null;
-//        }
+        if(dataRecorder != null){
+            try{
+                dataRecorder.stop();
+                dataRecorder.release();
+                dataRecorder = null;
+            }catch (Exception ex){
+                Logger.log(ex.getMessage());
+            }
+        }
     }
 
 }
