@@ -28,8 +28,11 @@ import java.util.Locale;
 import sumeetkumar.in.wearsense.R;
 import sumeetkumar.in.wearsense.services.AlarmManager;
 import sumeetkumar.in.wearsense.services.StartSensingBroadcastReceiver;
+import sumeetkumar.in.wearsense.utils.BLEScanner;
+import sumeetkumar.in.wearsense.utils.BLESignalScanner;
 import sumeetkumar.in.wearsense.utils.Constants;
 import sumeetkumar.in.wearsense.utils.Logger;
+import sumeetkumar.in.wearsense.utils.SoundPlayer;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -70,7 +73,7 @@ public class MainActivity extends ActionBarActivity {
                 this.getApplicationContext(),
                 Constants.TIME_RANGE_TO_SHOW_ALERT_IN_MINUTES * 60 * 1000);
 
-        if(dataReceiver ==null) {
+        if (dataReceiver == null) {
             dataReceiver = new NewDataReceivedBroadcastReceiver(new Handler());
 
             Log.d("WEA", "New configuration receiver created in main activity");
@@ -83,9 +86,9 @@ public class MainActivity extends ActionBarActivity {
     }
 
     @Override
-    protected void onDestroy(){
+    protected void onDestroy() {
 
-        if(dataReceiver!= null){
+        if (dataReceiver != null) {
             getApplication().unregisterReceiver(dataReceiver);
             dataReceiver = null;
         }
@@ -141,7 +144,7 @@ public class MainActivity extends ActionBarActivity {
         @Override
         public int getCount() {
             // Show 3 total pages.
-            return 3;
+            return 1;
         }
 
         @Override
@@ -193,7 +196,7 @@ public class MainActivity extends ActionBarActivity {
 
         @Override
         public void onViewCreated(View view,
-                                  Bundle savedInstanceState){
+                                  Bundle savedInstanceState) {
             final TextView txtStatus = (TextView) getActivity().findViewById(R.id.txtFragment);
 
             Button btnGetData = (Button) getActivity().findViewById(R.id.btnGetData);
@@ -208,6 +211,29 @@ public class MainActivity extends ActionBarActivity {
             TextView txtData = (TextView) getActivity().findViewById(R.id.txtWearData);
             txtData.setMovementMethod(new ScrollingMovementMethod());
 
+            Button btnPlaySound = (Button) getActivity().findViewById(R.id.btnPlaySound);
+            btnPlaySound.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    SoundPlayer player = new SoundPlayer();
+                    player.playSound();
+                }
+            });
+
+            Button btnScan = (Button) getActivity().findViewById(R.id.btnScan);
+            btnScan.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    getActivity().runOnUiThread(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            BLESignalScanner.getSignalStrength("NA", getActivity().getApplicationContext());
+                            BLEScanner bleScanner = new BLEScanner(getActivity());
+                        }
+                    });
+                }
+            });
         }
     }
 
@@ -220,13 +246,13 @@ public class MainActivity extends ActionBarActivity {
 
         @Override
         public void onReceive(final Context context, final Intent intent) {
-            try{
+            try {
                 final String message = intent.getStringExtra(Constants.NEW_DATA);
                 final TextView txtData = (TextView) findViewById(R.id.txtWearData);
                 final TextView txtStatus = (TextView) findViewById(R.id.txtFragment);
 
                 // Post the UI updating code to our Handler
-                if(handler!= null){
+                if (handler != null) {
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
@@ -238,7 +264,7 @@ public class MainActivity extends ActionBarActivity {
                         }
                     });
                 }
-            }catch(Exception ex){
+            } catch (Exception ex) {
                 Logger.log(ex.getMessage());
             }
         }

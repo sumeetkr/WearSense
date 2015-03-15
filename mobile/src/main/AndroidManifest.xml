@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
 
     <application
         android:allowBackup="true"
@@ -56,7 +58,7 @@
             android:exported="true" >
         </service>
         <service
-            android:name=".services.DataSyncListenerService"
+            android:name=".services.DataSynchronizationService"
             android:enabled="true"
             android:exported="true" >
             <intent-filter>

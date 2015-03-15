@@ -37,4 +37,20 @@
         android:layout_toEndOf="@+id/section_label"
         android:layout_alignParentBottom="true" />
 
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Play Sound"
+        android:id="@+id/btnPlaySound"
+        android:layout_alignTop="@+id/btnGetData"
+        android:layout_toEndOf="@+id/btnGetData" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Scan"
+        android:id="@+id/btnScan"
+        android:layout_above="@+id/txtWearData"
+        android:layout_toEndOf="@+id/btnPlaySound" />
+
 </RelativeLayout>

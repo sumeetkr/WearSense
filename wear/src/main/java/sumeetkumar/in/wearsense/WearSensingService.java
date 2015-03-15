@@ -9,6 +9,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.Handler;
 import android.os.PowerManager;
 import android.util.Base64;
 import android.util.Log;
@@ -42,9 +43,11 @@ public class WearSensingService extends WearableListenerService implements Senso
     private GoogleApiClient mGoogleApiClient;
     private SensorManager sensorManager;
     private PutDataMapRequest sensorData;
+    private PutDataMapRequest audioData;
     private PowerManager powerManager;
     private PowerManager.WakeLock wakeLock;
     private SoundDataCollector audioCollector;
+    private Handler handler;
 
     @Override
     public void onCreate() {
@@ -60,7 +63,7 @@ public class WearSensingService extends WearableListenerService implements Senso
                 TAG);
 
         if(audioCollector == null) audioCollector = new SoundDataCollector();
-        audioCollector.collectData(getApplicationContext(),false);
+        handler = new Handler();
     }
 
     @Override
@@ -88,13 +91,33 @@ public class WearSensingService extends WearableListenerService implements Senso
     public void onMessageReceived(MessageEvent messageEvent) {
         String path = messageEvent.getPath();
         Logger.log("onMessageReceived: " + path);
-        if (path.equals(Constants.SENSOR_DATA_PATH)) {
+        if (path.equals(Constants.START_SENSOR_RECORDING)) {
             try {
                 acquireWakeLock();
                 startSensorListeners();
                 Thread.sleep(Constants.SENSOR_WINDOW);
                 stopSensorListeners();
-                sendSensorData();
+                sendSensorData(sensorData);
+                releaseWakeLock();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }else if(path.equals(Constants.START_AUDIO_RECORDING)){
+            try {
+                acquireWakeLock();
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        audioData = PutDataMapRequest.create(Constants.AUDIO_DATA_PATH);
+                        startAudioCollection();
+                    }
+                });
+
+                Thread.sleep(Constants.AUDIO_COLLECTION_WINDOW);
+//                Thread.sleep(Constants.SENSOR_WINDOW);
+                stopAudioCollection();
+                prepareAudioAsset();
+                sendSensorData(audioData);
                 releaseWakeLock();
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -118,6 +141,7 @@ public class WearSensingService extends WearableListenerService implements Senso
         List<Sensor> sensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
         sensorData = PutDataMapRequest.create(Constants.SENSOR_DATA_PATH);
         sensorData.getDataMap().putLong("Timestamp", System.currentTimeMillis());
+
         float[] empty = new float[0];
         for (Sensor sensor : sensors) {
             sensorData.getDataMap().putFloatArray(sensor.getName(), empty);
@@ -127,56 +151,48 @@ public class WearSensingService extends WearableListenerService implements Senso
 
     }
 
+    private void startAudioCollection(){
+        audioData.getDataMap().putLong("Timestamp", System.currentTimeMillis());
+
+        audioCollector.collectData(audioData.getDataMap());
+    }
+
     private void stopSensorListeners() {
         Logger.log("stopSensorListeners");
         sensorManager.unregisterListener(WearSensingService.this);
+    }
+
+    private void stopAudioCollection(){
         audioCollector.notifyForDataCollectionFinished();
     }
 
-    private void sendSensorData() {
+
+    private void sendSensorData(PutDataMapRequest data) {
         try{
             Logger.log("trying to send SensorData");
 
-            addAudioDataToSensorDataCollection();
-
-            final PutDataRequest request = sensorData.asPutDataRequest();
-            final WearSensingService srv = this;
-
+            final PutDataRequest request = data.asPutDataRequest();
             PendingResult result = Wearable.DataApi.putDataItem(mGoogleApiClient, request);
             result.setResultCallback(new ResultCallback() {
-                int NOTIFICATION_ID = 1;
                 @Override
                 public void onResult(Result result) {
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss");
-                    String currentDateandTime = sdf.format(new Date());
-
-                    Notification.Builder notificationBuilder =
-                            new Notification.Builder(srv)
-                                    .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                                    .setContentTitle("Sensing!!")
-                                    .setContentText(currentDateandTime)
-                                    .setVibrate(new long[]{1000, 1000, 1000, 1000, 1000})
-                                    .setOngoing(false);
-
-                    // Build the notification and show it
-                    NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                    notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build());
+                    notifyUser();
+                    Logger.log(result.getStatus().getStatusMessage());
                 }
             });
-
-//            fireMessage();
         }catch(Exception ex){
             Logger.log("exception n sending SensorData");
         }
     }
 
-    private void addAudioDataToSensorDataCollection() {
+    private void prepareAudioAsset() {
         try{
-            sensorData.getDataMap().putAsset(
+            audioData.getDataMap().putAsset(
                     "audioAsset",
                     Asset.createFromBytes(audioCollector.getCollectedAudio().getBytes()));
 
             audioCollector.notifyForDataCollectionFinished();
+            audioCollector.clear();
             audioCollector = null;
         }catch (Exception ex){
             Logger.log(ex.getMessage());
@@ -212,6 +228,25 @@ public class WearSensingService extends WearableListenerService implements Senso
                     }
                 }
         );
+    }
+
+    private void notifyUser() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss");
+        String currentDateandTime = sdf.format(new Date());
+
+        int NOTIFICATION_ID = 1;
+
+        Notification.Builder notificationBuilder =
+                new Notification.Builder(this)
+                        .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+                        .setContentTitle("Sensing!!")
+                        .setContentText(currentDateandTime)
+                        .setVibrate(new long[]{1000, 1000, 1000, 1000, 1000})
+                        .setOngoing(false);
+
+        // Build the notification and show it
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build());
     }
 
     private void fireMessage() {

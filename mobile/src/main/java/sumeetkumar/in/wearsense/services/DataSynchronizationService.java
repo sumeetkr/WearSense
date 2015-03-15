@@ -1,8 +1,8 @@
 package sumeetkumar.in.wearsense.services;
 
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -22,25 +22,24 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import sumeetkumar.in.wearsense.utils.Constants;
+import sumeetkumar.in.wearsense.utils.FileWriter;
 import sumeetkumar.in.wearsense.utils.Logger;
 import sumeetkumar.in.wearsense.utils.NewDataIntent;
+import sumeetkumar.in.wearsense.utils.SoundPlayer;
 
-public class DataSyncListenerService extends WearableListenerService {
+public class DataSynchronizationService extends WearableListenerService {
 
     private GoogleApiClient mGoogleApiClient;
 
-    public DataSyncListenerService() {
+    public DataSynchronizationService() {
     }
 
     @Override
@@ -68,40 +67,52 @@ public class DataSyncListenerService extends WearableListenerService {
 
     @Override
     public void onDataChanged(DataEventBuffer dataEvents) {
-        Logger.log("onDataChanged: New data to sync" + dataEvents);
-        Toast.makeText(this, " onDataChanged", Toast.LENGTH_SHORT);
+        try{
+            Logger.log("onDataChanged: New data to sync" + dataEvents);
+            Toast.makeText(this, " onDataChanged", Toast.LENGTH_SHORT);
 
-        final List<DataEvent> events = FreezableUtils.freezeIterable(dataEvents);
-        dataEvents.close();
-        if(!mGoogleApiClient.isConnected()) {
-            ConnectionResult connectionResult = mGoogleApiClient
-                    .blockingConnect(30, TimeUnit.SECONDS);
-            if (!connectionResult.isSuccess()) {
-                Logger.log("DataLayerListenerService failed to connect to GoogleApiClient.");
-                return;
-            }
-        }
-
-        // Loop through the events and send a message back to the node that created the data item.
-        for (DataEvent event : events) {
-            Uri uri = event.getDataItem().getUri();
-            String path = uri.getPath();
-            if (Constants.SENSOR_DATA_PATH.equals(path) && event.getType() == DataEvent.TYPE_CHANGED) {
-                try{
-                    DataMapItem dataMapItem = DataMapItem.fromDataItem(event.getDataItem());
-                    DataMap map = dataMapItem.getDataMap();
-
-                    Asset audioAsset = dataMapItem.getDataMap().getAsset("audioAsset");
-                    String audio = loadStringFromAsset(audioAsset);
-
-                    saveData(dataMapAsJSONObject(map).toString() + "\n" + audio);
-
-                    Logger.log("Received data ");
-
-                }catch (Exception ex){
-                    Logger.log("failed while retrieving data" + ex.getMessage());
+            final List<DataEvent> events = FreezableUtils.freezeIterable(dataEvents);
+            dataEvents.close();
+            if(!mGoogleApiClient.isConnected()) {
+                ConnectionResult connectionResult = mGoogleApiClient
+                        .blockingConnect(30, TimeUnit.SECONDS);
+                if (!connectionResult.isSuccess()) {
+                    Logger.log("DataLayerListenerService failed to connect to GoogleApiClient.");
+                    return;
                 }
             }
+            // Loop through the events and send a message back to the node that created the data item.
+            for (DataEvent event : events) {
+                Uri uri = event.getDataItem().getUri();
+                String path = uri.getPath();
+                if (Constants.SENSOR_DATA_PATH.equals(path) && event.getType() == DataEvent.TYPE_CHANGED) {
+                        DataMapItem dataMapItem = DataMapItem.fromDataItem(event.getDataItem());
+                        DataMap map = dataMapItem.getDataMap();
+                        String json = dataMapAsJSONObject(map).toString();
+                        NewDataIntent dataIntent = new NewDataIntent("", json, true);
+                        getApplicationContext().sendBroadcast(dataIntent);
+
+                        FileWriter.saveData( json , Constants.SENSOR_DATA_PATH);
+                        Logger.log("Received sensor data ");
+
+
+                }else if(Constants.AUDIO_DATA_PATH.equals(path) && event.getType() == DataEvent.TYPE_CHANGED) {
+                    DataMapItem dataMapItem = DataMapItem.fromDataItem(event.getDataItem());
+                    Asset audioAsset = dataMapItem.getDataMap().getAsset("audioAsset");
+                    if(audioAsset!= null){
+                        String audio = loadStringFromAsset(audioAsset);
+                        FileWriter.saveData(audio, Constants.AUDIO_DATA_PATH);
+
+                        Logger.log("Received audio data ");
+                    }
+                    Intent startSensingIntent = new Intent(this, StartSensingBroadcastReceiver.class);
+                    startSensingIntent.putExtra(Constants.ACTION, Constants.START_SENSOR_RECORDING);
+                    sendBroadcast(startSensingIntent);
+                }
+            }
+
+        }catch (Exception ex){
+            Logger.log("failed while retrieving data" + ex.getMessage());
         }
     }
 
@@ -118,39 +129,6 @@ public class DataSyncListenerService extends WearableListenerService {
             }
         }
         return json;
-    }
-
-    /* Checks if external storage is available for read and write */
-    private boolean isExternalStorageWritable() {
-        String state = Environment.getExternalStorageState();
-        if (Environment.MEDIA_MOUNTED.equals(state)) {
-            return true;
-        }
-        return false;
-    }
-
-    private void saveData(String dataJSON) {
-        if (!isExternalStorageWritable()) {
-            Logger.log("External Storage Not Writable");
-            return;
-        }
-        File directory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        directory.mkdirs();
-        File file = new File(directory, "wearable_data.txt");
-
-        NewDataIntent dataIntent = new NewDataIntent("",dataJSON,true);
-        getApplicationContext().sendBroadcast(dataIntent);
-
-        try {
-            FileOutputStream stream = new FileOutputStream(file, true);
-            OutputStreamWriter writer = new OutputStreamWriter(stream);
-            writer.write(dataJSON);
-            writer.close();
-
-        } catch (Exception e) {
-            Logger.log("Error Saving");
-            e.printStackTrace();
-        }
     }
 
     public String loadStringFromAsset(Asset asset) {
@@ -192,9 +170,11 @@ public class DataSyncListenerService extends WearableListenerService {
     {
         Logger.log("Message received " + messageEvent.toString());
         super.onMessageReceived(messageEvent);
-        if (messageEvent.getPath().contains(Constants.SENSOR_DATA_PATH))
+        if (messageEvent.getPath().contains(Constants.AUDIO_RECORDING_STARTED))
         {
-        //Need to pull data?
+         //Start ultrasonic sound
+            SoundPlayer player = new SoundPlayer();
+            player.playSound();
         }
     }
 

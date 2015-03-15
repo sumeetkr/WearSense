@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 
+import sumeetkumar.in.wearsense.utils.Constants;
 import sumeetkumar.in.wearsense.utils.Logger;
 
 public class BackgroundService extends Service {
@@ -32,8 +33,8 @@ public class BackgroundService extends Service {
         }else{
             //do something
         }
-
         Intent startSensingIntent = new Intent(this, StartSensingBroadcastReceiver.class);
+        startSensingIntent.putExtra(Constants.ACTION, Constants.START_AUDIO_RECORDING);
         sendBroadcast(startSensingIntent);
 
         return Service.START_NOT_STICKY;

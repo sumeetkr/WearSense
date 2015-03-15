@@ -4,8 +4,9 @@ package sumeetkumar.in.wearsense;
  * Created by sumeet on 3/9/15.
  */
 
-import android.content.Context;
 import android.media.MediaRecorder;
+
+import com.google.android.gms.wearable.DataMap;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,13 +24,15 @@ public class SoundDataCollector  implements ExtAudioRecorder.AudioDataArrivedEve
     private List<ExtAudioRecorder.AudioReadResult> dataList;
     private List<String> dataPointsAsString = new ArrayList<String>();
     private int noOfPointsToCollect = 4;
+    private DataMap dataMap;
 
     public SoundDataCollector() {
 
     }
 
-    public void collectData(Context context, boolean toBeWritten){
+    public void collectData(DataMap audioDataMap){
         try{
+            dataMap = audioDataMap;
             dataRecorder = ExtAudioRecorder.getInstance(false, MediaRecorder.AudioSource.DEFAULT);
             dataList = new ArrayList<ExtAudioRecorder.AudioReadResult>();
 
@@ -99,6 +102,14 @@ public class SoundDataCollector  implements ExtAudioRecorder.AudioDataArrivedEve
                 Logger.log(ex.getMessage());
             }
         }
+    }
+
+    public void clear(){
+        dataList.clear();
+        dataList = null;
+
+        dataPointsAsString.clear();
+        dataPointsAsString = null;
     }
 
 }

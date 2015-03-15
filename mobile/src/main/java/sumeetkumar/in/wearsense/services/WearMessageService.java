@@ -32,8 +32,15 @@ public class WearMessageService extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
+        // plan
+        // First find if any wearable devices are available or not
+        // Then ask them to start audio recording
+        // Once they respond mentioning that audio recording has started, start ultrasonic chirps
+        // Send message to stop recording
+        // Send message to collect other sensor data, also start phones sensor collection at the same time
+
         for (String node : getNodes()) {
-            sendMessage(node, Constants.SENSOR_DATA_PATH);
+            sendMessage(node, intent.getStringExtra(Constants.ACTION));
         }
     }
 
@@ -46,7 +53,7 @@ public class WearMessageService extends IntentService {
         client.connect();
     }
 
-    private Collection<String> getNodes() {
+    public Collection<String> getNodes() {
         HashSet<String> results = new HashSet<String>();
         NodeApi.GetConnectedNodesResult nodes =
                 Wearable.NodeApi.getConnectedNodes(client).await();
@@ -60,6 +67,7 @@ public class WearMessageService extends IntentService {
 
     private void sendMessage(String node, final String message) {
         Logger.log("Sending Message: " + message + " to Node: " + node);
+
         Wearable.MessageApi.sendMessage(
                 client, node, message, new byte[0]).setResultCallback(
                 new ResultCallback<MessageApi.SendMessageResult>() {
