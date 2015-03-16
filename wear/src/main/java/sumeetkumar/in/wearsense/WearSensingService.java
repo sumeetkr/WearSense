@@ -18,6 +18,7 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.Result;
 import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.MessageEvent;
@@ -27,6 +28,7 @@ import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 import com.google.android.gms.wearable.WearableListenerService;
+import com.google.android.gms.wearable.WearableStatusCodes;
 
 import java.io.ByteArrayOutputStream;
 import java.text.SimpleDateFormat;
@@ -113,8 +115,8 @@ public class WearSensingService extends WearableListenerService implements Senso
                     }
                 });
 
+                sendMessage(Constants.AUDIO_RECORDING_STARTED); //Mobile uses it to start playing sound
                 Thread.sleep(Constants.AUDIO_COLLECTION_WINDOW);
-//                Thread.sleep(Constants.SENSOR_WINDOW);
                 stopAudioCollection();
                 prepareAudioAsset();
                 sendSensorData(audioData);
@@ -152,9 +154,9 @@ public class WearSensingService extends WearableListenerService implements Senso
     }
 
     private void startAudioCollection(){
-        audioData.getDataMap().putLong("Timestamp", System.currentTimeMillis());
+        audioData.getDataMap().putLong(Constants.TIMESTAMP_START, System.currentTimeMillis());
 
-        audioCollector.collectData(audioData.getDataMap());
+        audioCollector.collectData();
     }
 
     private void stopSensorListeners() {
@@ -164,6 +166,7 @@ public class WearSensingService extends WearableListenerService implements Senso
 
     private void stopAudioCollection(){
         audioCollector.notifyForDataCollectionFinished();
+        audioData.getDataMap().putLong(Constants.TIMESTAMP_END, System.currentTimeMillis());
     }
 
 
@@ -267,22 +270,25 @@ public class WearSensingService extends WearableListenerService implements Senso
                             Logger.log("Message received: " + messageEvent);
                         }
                     });
-
-//                    PendingResult<MessageApi.SendMessageResult> messageResult = Wearable.MessageApi.sendMessage(mGoogleApiClient, "New data available",
-//                            Constants.SENSOR_DATA_PATH, null);
-//                    messageResult.setResultCallback(new ResultCallback<MessageApi.SendMessageResult>() {
-//                        @Override
-//                        public void onResult(MessageApi.SendMessageResult sendMessageResult) {
-//                            Status status = sendMessageResult.getStatus();
-//                            Logger.log("Status: " + status.toString());
-//                            if (status.getStatusCode() != WearableStatusCodes.SUCCESS) {
-//                                Log.d(TAG, status.getStatusMessage());
-//                            }
-//                        }
-//                    });
                 }
             }
         });
+    }
+
+    public void sendMessage(String messageToBeSent){
+        PendingResult<MessageApi.SendMessageResult> messageResult = Wearable.MessageApi.sendMessage(mGoogleApiClient,
+                Constants.SENSOR_DATA_PATH, messageToBeSent, null);
+        messageResult.setResultCallback(new ResultCallback<MessageApi.SendMessageResult>() {
+            @Override
+            public void onResult(MessageApi.SendMessageResult sendMessageResult) {
+                Status status = sendMessageResult.getStatus();
+                Logger.log("Status: " + status.toString());
+                if (status.getStatusCode() != WearableStatusCodes.SUCCESS) {
+                    Log.d(TAG, status.getStatusMessage());
+                }
+            }
+        });
+
     }
 
     private void acquireWakeLock() {

@@ -20,7 +20,7 @@ public class WearablesHelper {
         Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
         if (pairedDevices.size() > 0) {
             for (BluetoothDevice device : pairedDevices) {
-                Logger.log(device.getName());
+                 Logger.debug(device.getName());
                 results.add(device.getName());
             }
         }

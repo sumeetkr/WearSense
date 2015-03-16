@@ -3,6 +3,7 @@ package sumeetkumar.in.wearsense.services;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -18,26 +19,26 @@ import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
 import com.google.android.gms.wearable.WearableListenerService;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import sumeetkumar.in.wearsense.utils.Constants;
 import sumeetkumar.in.wearsense.utils.FileWriter;
 import sumeetkumar.in.wearsense.utils.Logger;
 import sumeetkumar.in.wearsense.utils.NewDataIntent;
+import sumeetkumar.in.wearsense.utils.SoundDataCollector;
 import sumeetkumar.in.wearsense.utils.SoundPlayer;
 
 public class DataSynchronizationService extends WearableListenerService {
 
     private GoogleApiClient mGoogleApiClient;
+    private Handler handler;
+    private DataMap audioDataMap;
+    private SoundDataCollector soundRecorder;
 
     public DataSynchronizationService() {
     }
@@ -46,6 +47,7 @@ public class DataSynchronizationService extends WearableListenerService {
     public void onCreate() {
         super.onCreate();
 
+        handler = new Handler();
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addApi(Wearable.API)
                 .build();
@@ -88,11 +90,11 @@ public class DataSynchronizationService extends WearableListenerService {
                 if (Constants.SENSOR_DATA_PATH.equals(path) && event.getType() == DataEvent.TYPE_CHANGED) {
                         DataMapItem dataMapItem = DataMapItem.fromDataItem(event.getDataItem());
                         DataMap map = dataMapItem.getDataMap();
-                        String json = dataMapAsJSONObject(map).toString();
+                        String json = FileWriter.dataMapAsJSONObject(map).toString();
                         NewDataIntent dataIntent = new NewDataIntent("", json, true);
                         getApplicationContext().sendBroadcast(dataIntent);
 
-                        FileWriter.saveData( json , Constants.SENSOR_DATA_PATH);
+                        FileWriter.saveData(json, Constants.SENSOR_DATA_PATH);
                         Logger.log("Received sensor data ");
 
 
@@ -101,10 +103,18 @@ public class DataSynchronizationService extends WearableListenerService {
                     Asset audioAsset = dataMapItem.getDataMap().getAsset("audioAsset");
                     if(audioAsset!= null){
                         String audio = loadStringFromAsset(audioAsset);
-                        FileWriter.saveData(audio, Constants.AUDIO_DATA_PATH);
+                        DataMap dataMap = new DataMap();
+                        dataMap.putLong(Constants.TIMESTAMP_START,
+                                dataMapItem.getDataMap().getLong(Constants.TIMESTAMP_START));
+                        dataMap.putLong(Constants.TIMESTAMP_END,
+                                dataMapItem.getDataMap().getLong(Constants.TIMESTAMP_END));
+                        dataMap.putString("audioData", audio);
+
+                        FileWriter.saveData(FileWriter.dataMapAsJSONObject(dataMap).toString(), Constants.AUDIO_DATA_PATH);
 
                         Logger.log("Received audio data ");
                     }
+
                     Intent startSensingIntent = new Intent(this, StartSensingBroadcastReceiver.class);
                     startSensingIntent.putExtra(Constants.ACTION, Constants.START_SENSOR_RECORDING);
                     sendBroadcast(startSensingIntent);
@@ -114,21 +124,6 @@ public class DataSynchronizationService extends WearableListenerService {
         }catch (Exception ex){
             Logger.log("failed while retrieving data" + ex.getMessage());
         }
-    }
-
-    private JSONObject dataMapAsJSONObject(DataMap data) {
-        Bundle bundle = data.toBundle();
-        JSONObject json = new JSONObject();
-        Set<String> keys = bundle.keySet();
-        for (String key : keys) {
-            try {
-                // json.put(key, bundle.get(key)); see edit below
-                json.put(key, JSONObject.wrap(bundle.get(key)));
-            } catch(JSONException e) {
-                Logger.log(e.getMessage());
-            }
-        }
-        return json;
     }
 
     public String loadStringFromAsset(Asset asset) {
@@ -172,10 +167,52 @@ public class DataSynchronizationService extends WearableListenerService {
         super.onMessageReceived(messageEvent);
         if (messageEvent.getPath().contains(Constants.AUDIO_RECORDING_STARTED))
         {
-         //Start ultrasonic sound
+         // Start mobile audio recording
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    startAudioRecording();
+                }
+            });
+
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    stopAudioCollection();
+                    audioDataMap.putString("audioData", soundRecorder.getCollectedAudio());
+                    FileWriter.saveData(FileWriter.dataMapAsJSONObject(audioDataMap).toString(), Constants.MOBILE_AUDIO_DATA_PATH);
+                    clearAudioData();
+                }
+            }, Constants.AUDIO_COLLECTION_WINDOW);
+
+            //Start ultrasonic sound
             SoundPlayer player = new SoundPlayer();
             player.playSound();
         }
+    }
+
+    public void startAudioRecording(){
+        try {
+            audioDataMap = new DataMap();
+            soundRecorder = new SoundDataCollector();
+
+            Logger.log("Starting audio data collection");
+            audioDataMap.putLong(Constants.TIMESTAMP_START, System.currentTimeMillis());
+            soundRecorder.collectData();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void stopAudioCollection() {
+        Logger.log("Stopping audio data collection");
+        audioDataMap.putLong(Constants.TIMESTAMP_END, System.currentTimeMillis());
+        soundRecorder.notifyForDataCollectionFinished();
+    }
+
+    private void clearAudioData(){
+        soundRecorder.clear();
     }
 
     @Override

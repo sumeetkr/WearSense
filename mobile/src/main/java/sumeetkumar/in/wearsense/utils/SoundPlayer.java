@@ -11,7 +11,7 @@ import android.os.Handler;
 public class SoundPlayer {
     // originally from http://marblemice.blogspot.com/2010/04/generate-and-play-tone-in-android.html
     // and modified by Steve Pomeroy <steve@staticfree.info>
-    private final int duration = 5; // seconds
+    private final int duration = 2; // seconds
     private final int sampleRate = 44100;
     private final int numSamples = duration * sampleRate;
     private final double sample[] = new double[numSamples];
@@ -41,6 +41,7 @@ public class SoundPlayer {
     }
 
     private void play(){
+        Logger.log("playing audio");
         final AudioTrack audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
                 sampleRate, AudioFormat.CHANNEL_OUT_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, generatedSnd.length,

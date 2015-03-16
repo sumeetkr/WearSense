@@ -1,4 +1,4 @@
-package sumeetkumar.in.wearsense;
+package sumeetkumar.in.wearsense.utils;
 
 /**
  * Created by sumeet on 3/9/15.
@@ -10,27 +10,24 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import sumeetkumar.in.wearsense.utils.Logger;
-
 
 /**
  * Created by sumeet on 11/10/14.
  */
-public class SoundDataCollector  implements ExtAudioRecorder.AudioDataArrivedEventListener {
+public class SoundDataCollector implements ExtAudioRecorder.AudioDataArrivedEventListener {
 
     private ExtAudioRecorder dataRecorder;
     private List<ExtAudioRecorder.AudioReadResult> dataList;
     private List<String> dataPointsAsString = new ArrayList<String>();
     private int noOfPointsToCollect = 4;
-
+  
     public SoundDataCollector() {
-
+        dataList = new ArrayList<ExtAudioRecorder.AudioReadResult>();
     }
 
     public void collectData(){
         try{
-            dataRecorder = ExtAudioRecorder.getInstance(false, MediaRecorder.AudioSource.DEFAULT);
-            dataList = new ArrayList<ExtAudioRecorder.AudioReadResult>();
+            dataRecorder = ExtAudioRecorder.getInstance(false, MediaRecorder.AudioSource.MIC);
 
             dataRecorder.registerDataListener(this);
             dataRecorder.prepare();
@@ -38,7 +35,6 @@ public class SoundDataCollector  implements ExtAudioRecorder.AudioDataArrivedEve
 
         }catch (Exception ex){
             Logger.log(ex.getMessage());
-
         }
     }
 
@@ -46,7 +42,7 @@ public class SoundDataCollector  implements ExtAudioRecorder.AudioDataArrivedEve
     public void onNewDataArrived(ExtAudioRecorder.AudioReadResult data) {
         dataList.add(data);
 
-        Logger.debug("New sound data collection");
+        Logger.log("New sound data collection");
         dataPointsAsString.add(Arrays.toString(data.buffer));
 
         if(dataList.size() > noOfPointsToCollect){

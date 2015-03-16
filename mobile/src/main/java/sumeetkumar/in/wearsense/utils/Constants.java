@@ -16,4 +16,8 @@ public class Constants {
     public static final String SLEEPING_KEY = "sleeping";
     public static final String ACTION = "action";
     public static final String AUDIO_DATA_PATH = "/wear_audio_data";
+    public static final String TIMESTAMP_START = "TimestampStart";
+    public static final String TIMESTAMP_END = "TimestampEnd";
+    public static final long AUDIO_COLLECTION_WINDOW = 4000;
+    public static final String MOBILE_AUDIO_DATA_PATH = "mobile_audio_data.txt";
 }

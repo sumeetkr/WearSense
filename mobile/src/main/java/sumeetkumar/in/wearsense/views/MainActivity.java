@@ -121,6 +121,7 @@ public class MainActivity extends ActionBarActivity {
 
     public void readSensors() {
         Intent intent = new Intent(this, StartSensingBroadcastReceiver.class);
+        intent.putExtra(Constants.ACTION, Constants.START_AUDIO_RECORDING);
         sendBroadcast(intent);
     }
 

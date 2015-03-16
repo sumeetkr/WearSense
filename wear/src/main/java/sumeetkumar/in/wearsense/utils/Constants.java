@@ -16,6 +16,8 @@ public class Constants {
     public static final String SHARED_PREFS_KEY = "data-collection-prefs";
     public static final String SLEEPING_KEY = "sleeping";
     public static final String ACTION = "action";
+    public static final String TIMESTAMP_START = "TimestampStart";
+    public static final String TIMESTAMP_END = "TimestampEnd";
 
 
 }

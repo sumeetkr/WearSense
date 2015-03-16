@@ -7,7 +7,7 @@ import android.util.Log;
  */
 public class Logger {
     public static final String TAG = "WearSense";
-    private static final boolean isInDebugMode = true;
+    private static final boolean isInDebugMode = false;
 
     public static void log(String text){
         try{
